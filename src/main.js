@@ -1,8 +1,20 @@
 import Vue from 'vue'
-import App from './App.vue'
+import VueRouter from "vue-router"
+import home from './component/home'
 
-Vue.config.productionTip = false
+const routes = [
+  { path: '/', name: 'home', component: home },
+]
+
+const router = new VueRouter({
+  routes: routes,// （缩写）相当于 routes: routes
+  mode: 'history'
+})
+
+Vue.use(VueRouter)
 
 new Vue({
-  render: h => h(App),
-}).$mount('#app')
+  el: '#app',
+  render: h => h(home),
+  router
+})

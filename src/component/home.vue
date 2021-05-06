@@ -12,7 +12,7 @@
     <button v-on:click=connect>CONNECT</button>
     <button v-on:click=send>SEND MESSAGE</button>
     <button v-on:click=close>CLOSE</button>
-    <div id="message"></div>
+    <div id="message" v-html="msg"></div>
   </div>
 </template>
 
@@ -25,90 +25,51 @@ export default {
       username: null,
       roomName: null,
       content: null,
+      msg: ''
     }
   },
   mounted() {
   },
   methods: {
     connect() {
-      let msgBox = document.getElementById('message')
       state.userName = this.username
       console.log(state.userName)
       state.roomName = this.roomName
       console.log(state.roomName)
       state.websocket = new WebSocket("ws://localhost:8080/chat/" + state.roomName + "/" + state.userName)
 
+      let doShow = this.showMessage
 
       //连接发生错误的回调方法
-      state.websocket.onerror = function() {
-        showMessage(msgBox,"error")
+      state.websocket.onerror = () => {
+        getResolver("error")(state,doShow)
       }
-
 
       //连接成功建立的回调方法
-      state.websocket.onopen = function (){
-        showMessage(msgBox,"open")
-        state.rsaKey = cryptico.generateRSAKey(Math.random().toString(), 1024)
-        let publicKey = cryptico.publicKeyString(state.rsaKey)
-        let msg = {
-          "type": "ask",
-          "content": publicKey,
-          "senderName": state.userName
-        }
-        state.websocket.send(JSON.stringify(msg))
-        console.log("gen rsa key and send")
+      state.websocket.onopen = () => {
+        getResolver("open")(state,doShow)
       }
 
-
       //连接关闭的回调方法
-      state.websocket.onclose = function () {
-        showMessage(msgBox,"close")
+      state.websocket.onclose = () => {
+        getResolver("close")(state,doShow)
       }
 
       //接收到消息的回调方法
-      state.websocket.onmessage = function (event) {
-        showMessage(msgBox, event.data)
-        if (event.data === "master") {
-          state.desKey = genDesKey(16)
-          console.log("gen des " + state.desKey)
-        } else {
-          let msg = JSON.parse(event.data)
-
-          if (msg.type === "ask" && state.desKey != null) {
-            let publicKey = msg.content
-            msg = {
-              "type": "answer",
-              "content": cryptico.encrypt(state.desKey, publicKey).cipher,
-              "senderName": msg.senderName
-            }
-
-            state.websocket.send(JSON.stringify(msg))
-          }
-
-          if (msg.type === "answer" && msg.senderName === state.userName) {
-            state.desKey = cryptico.decrypt(msg.content, state.rsaKey).plaintext
-            console.log("get des " + state.desKey)
-          }
-
-          if (msg.type === "speak") {
-            if (state.desKey == null) console.log("desKey not set")
-            else {
-              let realMsg = {
-                "type": "speak",
-                "content": decryptByDES(msg.content, state.desKey)
-              }
-              showMessage(msgBox,JSON.stringify(realMsg))
-            }
-          }
-
-        }
+      state.websocket.onmessage = (event) => {
+        console.log(event.data)
+        let msg = JSON.parse(event.data)
+        getResolver(msg.type)(msg,state,doShow)
       }
 
       //监听窗口关闭事件，当窗口关闭时，主动去关闭websocket连接，防止连接还没断开就关闭窗口，server端会抛异常。
-      window.onbeforeunload = function () {
+      window.onbeforeunload = () => {
         state.websocket.close()
       }
 
+    },
+    showMessage(message) {
+      this.msg += message + '<br/>'
     },
 
     //发送消息
@@ -162,9 +123,79 @@ function genDesKey(num) {
   return key
 }
 
-//将消息显示在网页上
-function showMessage(div, message) {
-  div.innerHTML += message + '<br/>'
+function getResolver(methodName){
+  const resolverTable = {
+    "ask": ask,
+    "answer": answer,
+    "speak": speak,
+    "open":open,
+    "close":close,
+    "error":error,
+  }
+  return  resolverTable[methodName]
+}
+
+const ask = (msg,state,doShow) => {
+  if (state.desKey != null) {
+    let publicKey = msg.content
+    let reply = {
+      "type": "answer",
+      "content": cryptico.encrypt(state.desKey, publicKey).cipher,
+      "senderName": msg.senderName
+    }
+    state.websocket.send(JSON.stringify(reply))
+  }
+}
+
+const answer = (msg,state,doShow) => {
+  if(msg.content==="master") {
+    state.desKey = genDesKey(16)
+    console.log("gen des " + state.desKey)
+  }
+  else {
+    if (msg.senderName === state.userName) {
+      state.desKey = cryptico.decrypt(msg.content, state.rsaKey).plaintext
+      console.log("get des " + state.desKey)
+    }
+  }
+}
+
+const speak = (msg,state,doShow) => {
+    if (state.desKey == null) console.log("desKey not set")
+    else {
+      let realMsg = {
+        "type": "speak",
+        "content": decryptByDES(msg.content, state.desKey)
+      }
+      doShow(JSON.stringify(realMsg))
+    }
+}
+
+const error = (state,doShow) =>{
+  doShow("error")
+}
+
+const open = (state,doShow) =>{
+  doShow("open")
+  setTimeout(
+    () => {
+      if (state.desKey === null) {
+        state.rsaKey = cryptico.generateRSAKey(Math.random().toString(), 1024)
+        let publicKey = cryptico.publicKeyString(state.rsaKey)
+        let msg = {
+          "type": "ask",
+          "content": publicKey,
+          "senderName": state.userName
+        }
+        state.websocket.send(JSON.stringify(msg))
+        console.log("gen rsa key and send")
+      }
+    }
+    , 1000)
+}
+
+const close = (state,doShow) =>{
+  doShow("close")
 }
 
 </script>

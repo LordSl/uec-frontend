@@ -1,9 +1,11 @@
 import Vue from 'vue'
 import VueRouter from "vue-router"
-import home from './component/home'
+import login from './component/ChatRoom'
+import ElementUI from 'element-ui'
+import 'element-ui/lib/theme-chalk/index.css'
 
 const routes = [
-  { path: '/', name: 'home', component: home },
+  { path: '/', name: 'login', component: login },
 ]
 
 const router = new VueRouter({
@@ -13,8 +15,10 @@ const router = new VueRouter({
 
 Vue.use(VueRouter)
 
+Vue.use(ElementUI)
+
 new Vue({
   el: '#app',
-  render: h => h(home),
-  router
+  render: h => h(login),
+  // router
 })

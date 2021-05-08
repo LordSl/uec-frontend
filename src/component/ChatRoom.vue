@@ -14,7 +14,8 @@
         </div>
         <div style="align-self: flex-end;position: absolute">
           <el-button round class="round-button" v-on:click="connect" style="margin: 15px 20px 15px 0;">连接</el-button>
-          <el-button round class="round-button" v-on:click="close" style="margin: 15px 20px 15px 0;">关闭</el-button>
+          <el-button round class="round-button" v-on:click="lock" v-model="lockStr" style="margin: 15px 20px 15px 0;">{{lockStr}}</el-button>
+          <el-button round class="round-button" v-on:click="close" style="margin: 15px 20px 15px 0;">离开</el-button>
         </div>
 
       </el-header>
@@ -50,8 +51,16 @@
         <el-main id="main-zone">
           <div id="msg-box">
             <div v-for="item in this.chatMsgList" class="msg-item">
-              <div v-if="item.position==='left'" class="msg-item-left">{{ item.content }}</div>
-              <div v-else-if="item.position==='right'" class="msg-item-right">{{ item.content }}</div>
+              <div v-if="item.position==='left'" class="msg-item-left">
+                <el-avatar icon="el-icon-user-solid" class="user-avatar"></el-avatar>
+                <label class="user-name">{{item.name}}：</label>
+                <div class="msg-item-text">{{ item.content }}</div>
+              </div>
+              <div v-else-if="item.position==='right'" class="msg-item-right">
+                <el-avatar icon="el-icon-user-solid" class="user-avatar"></el-avatar>
+                <label class="user-name">{{item.name}}：</label>
+                <div class="msg-item-text">{{ item.content }}</div>
+              </div>
             </div>
           </div>
           <div id="text-box">
@@ -83,50 +92,73 @@ export default {
   name: "login",
   data() {
     return {
+      lockStr:"上锁",
       textToSend: "",
       usernameInput: "",
       roomnameInput: "",
       chatMsgList: [
-        {content: "你好", position: "left"},
-        {content: "宝宝巴士", position: "right"},
-        {content: "你也好", position: "left"},
-        {content: "宝宝巴士", position: "right"},
       ]
     }
   },
 
   mounted() {
+    state.legalCall.doShow = this.showMessage
+    state.legalCall.doMessage = this.$message
+    state.legalCall.doSend = (textToSend) =>{
+      let message = {
+        type: "speak",
+        content: encryptByDES(textToSend, state.desKey),
+        senderName: state.userName
+      }
+      state.websocket.send(JSON.stringify(message))
+    }
   },
   methods: {
     connect() {
+      if(state.websocket!=null){
+        state.legalCall.doMessage({
+          message:"连接已存在，请勿重复点击",
+          type:"warning"
+        })
+        return
+      }
+
       state.userName = this.usernameInput
       console.log(state.userName)
       state.roomName = this.roomnameInput
       console.log(state.roomName)
-      state.websocket = new WebSocket("ws://localhost:8080/chat/" + state.roomName + "/" + state.userName)
 
-      let doShow = this.showMessage
+      if(!(state.userName!==""  && state.userName!=="")){
+        state.legalCall.doMessage({
+          message:"请正确输入用户名和房间",
+          type:"warning"
+        })
+        return
+      }
+
+
+      state.websocket = new WebSocket("ws://localhost:8080/chat/" + state.roomName + "/" + state.userName)
 
       //连接发生错误的回调方法
       state.websocket.onerror = () => {
-        getResolver("error")(state, doShow)
+        getResolver("error")(state)
       }
 
       //连接成功建立的回调方法
       state.websocket.onopen = () => {
-        getResolver("open")(state, doShow)
+        getResolver("open")(state)
       }
 
       //连接关闭的回调方法
       state.websocket.onclose = () => {
-        getResolver("close")(state, doShow)
+        getResolver("close")(state)
       }
 
       //接收到消息的回调方法
       state.websocket.onmessage = (event) => {
         console.log(event.data)
         let msg = JSON.parse(event.data)
-        getResolver(msg.type)(msg, state, doShow)
+        getResolver(msg.type)(msg, state)
       }
 
       //监听窗口关闭事件，当窗口关闭时，主动去关闭websocket连接，防止连接还没断开就关闭窗口，server端会抛异常。
@@ -141,20 +173,44 @@ export default {
 
     //发送消息
     send() {
-      if (state.desKey == null) console.log("desKey not set")
+      if (state.desKey === null){
+        console.log("desKey not set")
+        this.$message({
+          message:"您尚未连接",
+          type:"warning"
+        })
+      }
       else {
-        let message = {
-          type: "speak",
-          content: encryptByDES(this.textToSend, state.desKey),
-          senderName: state.userName
-        }
-        state.websocket.send(JSON.stringify(message))
+        state.legalCall.doSend(this.textToSend)
+      }
+    },
+
+    lock() {
+      if(state.joinLock===null)  {
+        state.joinLock = 1
+        this.lockStr = "解锁"
+      }
+      else {
+        state.joinLock = null
+        this.lockStr = "上锁"
       }
     },
 
     //关闭连接
     close() {
+      if(state.websocket===null){
+        this.$message({
+          message:"您已断开连接，请勿重复点击",
+          type:"warning"
+        })
+        return
+      }
+      if(state.desKey!=null) state.legalCall.doSend("离开房间")
       state.websocket.close()
+      this.chatMsgList = []
+      state.websocket = null
+      state.desKey = null
+      state.rsaKey = null
     },
   },
 }
@@ -201,8 +257,8 @@ function getResolver(methodName) {
   return resolverTable[methodName]
 }
 
-const ask = (msg, state, doShow) => {
-  if (state.desKey != null) {
+const ask = (msg, state) => {
+  if (state.desKey != null && state.joinLock===null) {
     let publicKey = msg.content
     let reply = {
       type: "answer",
@@ -213,37 +269,50 @@ const ask = (msg, state, doShow) => {
   }
 }
 
-const answer = (msg, state, doShow) => {
+const answer = (msg, state) => {
   if (msg.content === "master") {
     state.desKey = genDesKey(16)
     console.log("gen des " + state.desKey)
+    state.legalCall.doMessage({
+      message:"创建房间密钥",
+      type:"success"
+    })
+    state.legalCall.doSend("创建房间")
   } else {
     if (msg.senderName === state.userName) {
       state.desKey = cryptico.decrypt(msg.content, state.rsaKey).plaintext
       console.log("get des " + state.desKey)
+      state.legalCall.doMessage({
+        message:"成功加入房间",
+        type:"success"
+      })
+      state.legalCall.doSend("进入房间")
     }
   }
 }
 
-const speak = (msg, state, doShow) => {
+const speak = (msg, state) => {
   console.log(msg)
-  if (state.desKey == null) console.log("desKey not set")
+  if (state.desKey === null) console.log("desKey not set")
   else {
     let realMsg = {
       position: null,
+      name: msg.senderName,
       content: decryptByDES(msg.content, state.desKey)
     }
     realMsg.position = msg.senderName === state.userName ? "left" : "right";
-    doShow(realMsg)
+    state.legalCall.doShow(realMsg)
   }
 }
 
-const error = (state, doShow) => {
-  doShow("error")
+const error = (state) => {
+  state.legalCall.doMessage({
+    message:"连接错误，请刷新网页",
+    type:"error"
+  })
 }
 
-const open = (state, doShow) => {
-  doShow("open")
+const open = (state) => {
   setTimeout(
     () => {
       if (state.desKey === null) {
@@ -256,13 +325,35 @@ const open = (state, doShow) => {
         }
         state.websocket.send(JSON.stringify(msg))
         console.log("gen rsa key and send")
+        state.legalCall.doMessage({
+          message:"发送密钥请求",
+          type:"info"
+       })
+      }
+      else {
+        state.legalCall.doMessage({
+          message:"您已创建房间 "+state.roomName,
+          type:"success"
+        })
       }
     }
     , 1000)
 }
 
-const close = (state, doShow) => {
-  doShow("close")
+const close = (state) => {
+  state.legalCall.doMessage({
+    message:"连接关闭",
+    type:"info"
+  })
+  setTimeout(
+  ()=>{
+    if(state.websocket===null)
+      state.legalCall.doMessage({
+        message:"您已离开房间",
+        type:"success"
+      })
+  }
+  ,1000)
 }
 </script>
 
@@ -278,7 +369,7 @@ const close = (state, doShow) => {
   height: 100%;
   position: fixed;
   opacity: 90%;
-  background-image: url('../static/bg2.png');
+  background-image: url('../../static/bg2.png');
   background-position: top;
   background-attachment: fixed;
   background-size: cover;
@@ -324,7 +415,8 @@ const close = (state, doShow) => {
   background-color: rgba(233, 233, 233, 0.4);
   border-radius: 10px;
   height: 70%;
-
+  max-height: 600px;
+  overflow-y:scroll;
 }
 
 #text-box {
@@ -344,6 +436,21 @@ const close = (state, doShow) => {
   flex-direction: column;
 }
 
+.user-avatar{
+  background-color: rgba(233,233,233,0.8);
+  margin: 5px;
+}
+
+.user-name{
+  color: rgba(120,180,210,0.8);
+  position: relative;
+  padding: 5px 0 5px 5px;
+}
+
+.msg-item-text{
+  padding: 5px 0 5px 5px;
+}
+
 .msg-item-left {
   border-radius: 5px;
   background-color: rgba(50, 50, 130, 0.75);
@@ -352,8 +459,10 @@ const close = (state, doShow) => {
   width: max-content;
   font-family: 阿里汉仪智能黑体, serif;
   font-size: 30px;
-  color: aliceblue;
+  color: aliceblue;;
   align-self: flex-start;
+  display: flex;
+  flex-direction: row;
 }
 
 .msg-item-right {
@@ -367,13 +476,13 @@ const close = (state, doShow) => {
   color: aliceblue;
   align-self: flex-end;
   /*flex-end是靠右,flex-start靠左*/
+  display: flex;
+  flex-direction: row;
 }
 
 .name-label {
   font-family: 阿里汉仪智能黑体, serif;
   font-size: 25px;
-  margin-top: 15px;
-  margin-bottom: 15px;
 }
 
 .menu {

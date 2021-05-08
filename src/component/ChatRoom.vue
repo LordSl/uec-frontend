@@ -6,16 +6,16 @@
 
     <el-container id="top">
       <el-header id="head-zone" height="10%">
-        <div>
-          <label class="name-label"> 用户名</label>
-          <el-input class="base-input" v-model="usernameInput" placeholder="请输入用户名"></el-input>
+        <div style="display: flex;flex-direction: row;margin-top: 30px;margin-bottom: 30px;align-items: center;">
+          <label class="name-label" style="margin-left: 10px"> 用户名</label>
+          <el-input class="base-input" v-model="usernameInput" placeholder="请输入用户名" style="margin-left: 20px"></el-input>
           <label class="name-label" style="margin-left: 30px"> 房间名</label>
-          <el-input class="base-input" v-model="roomnameInput" placeholder="请输入房间名"></el-input>
+          <el-input class="base-input" v-model="roomnameInput" placeholder="请输入房间名" style="margin-left: 20px"></el-input>
         </div>
-        <div style="align-self: flex-end;position: absolute">
-          <el-button round class="round-button" v-on:click="connect" style="margin: 15px 20px 15px 0;">连接</el-button>
-          <el-button round class="round-button" v-on:click="lock" v-model="lockStr" style="margin: 15px 20px 15px 0;">{{lockStr}}</el-button>
-          <el-button round class="round-button" v-on:click="close" style="margin: 15px 20px 15px 0;">离开</el-button>
+        <div style="align-self: flex-end;position: absolute;margin-top: 15px;">
+          <el-button round class="round-button" v-on:click="connect" style="margin-right: 20px">连接</el-button>
+          <el-button round class="round-button" v-on:click="lock" v-model="lockStr" style="margin-right: 20px">{{lockStr}}</el-button>
+          <el-button round class="round-button" v-on:click="close" style="margin-right: 20px">离开</el-button>
         </div>
 
       </el-header>
@@ -137,7 +137,7 @@ export default {
       }
 
 
-      state.websocket = new WebSocket("ws://localhost:8080/chat/" + state.roomName + "/" + state.userName)
+      state.websocket = new WebSocket("ws://123.57.200.185:8080/chat/" + state.roomName + "/" + state.userName)
 
       //连接发生错误的回调方法
       state.websocket.onerror = () => {
@@ -368,8 +368,8 @@ const close = (state) => {
   width: 100%;
   height: 100%;
   position: fixed;
-  opacity: 90%;
-  background-image: url('../../static/bg2.png');
+  opacity: 0.9;
+  background-image: url("https://www.hualigs.cn/image/6096cb03db49e.jpg");
   background-position: top;
   background-attachment: fixed;
   background-size: cover;
@@ -426,11 +426,6 @@ const close = (state) => {
   flex-direction: column;
 }
 
-.base-input {
-  width: 200px;
-  margin: 30px 10px 30px 10px;
-}
-
 .msg-item {
   display: flex;
   flex-direction: column;
@@ -483,6 +478,10 @@ const close = (state) => {
 .name-label {
   font-family: 阿里汉仪智能黑体, serif;
   font-size: 25px;
+}
+
+.base-input {
+  width: 12%;
 }
 
 .menu {

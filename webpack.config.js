@@ -2,11 +2,12 @@ var path = require('path')
 var webpack = require('webpack')
 
 module.exports = {
+
   entry: './src/main.js',
   output: {
     path: path.resolve(__dirname, './dist'),
     publicPath: '/dist/',
-    filename: 'build.js'
+    filename: 'build.js',
   },
   module: {
     rules: [
@@ -40,7 +41,11 @@ module.exports = {
       {
         test: /\.(eot|svg|ttf|woff|woff2)(\?\S*)?$/,
         loader: 'file-loader'
-      }
+      },
+      {
+        test: /\.html$/,
+        use: ['html-loader']
+      },
     ]
   },
   resolve: {

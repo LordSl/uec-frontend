@@ -5,7 +5,7 @@ import ElementUI from 'element-ui'
 import 'element-ui/lib/theme-chalk/index.css'
 
 const routes = [
-  { path: '/', name: 'login', component: login },
+  {path: '/', name: 'login', component: login},
 ]
 
 const router = new VueRouter({

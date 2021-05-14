@@ -215,7 +215,7 @@ export default {
       }
 
 
-      state.websocket = new WebSocket("ws://123.57.200.185:8080/chat/" + state.roomName + "/" + state.userName)
+      state.websocket = new WebSocket("ws://localhost:8080/chat/" + state.roomName + "/" + state.userName)
 
       state.websocket.onerror = () => {
         WSResolver("error")(state)

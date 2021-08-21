@@ -41,7 +41,7 @@
 
         <el-main id="main-zone">
           <div id="msg-box">
-            <div v-for="item in this.chatMsgList" class="msg-item">
+            <div v-for="item in this.chatMsgList.slice().reverse()" class="msg-item">
               <div v-if="item.position==='left'" class="msg-item-left">
                 <el-avatar icon="el-icon-user-solid" class="user-avatar"></el-avatar>
                 <label class="user-name">{{ item.name }}：</label>
@@ -59,7 +59,9 @@
               type="textarea"
               :rows="3"
               placeholder="请输入要发送的消息"
-              v-model="textToSend">
+              v-model="textToSend"
+              @keyup.enter.native="sendReact"
+            >
             </el-input>
             <el-button round class="round-button" v-on:click="sendReact"
                        style="margin: 15px 20px 15px 80%;align-self: flex-end">发送
@@ -214,8 +216,9 @@ export default {
         return
       }
 
+      state.websocket = new WebSocket("ws://123.57.200.185:8080/chat/" + state.roomName + "/" + state.userName)
 
-      state.websocket = new WebSocket("ws://localhost:8080/chat/" + state.roomName + "/" + state.userName)
+      // state.websocket = new WebSocket("ws://localhost:8080/chat/" + state.roomName + "/" + state.userName)
 
       state.websocket.onerror = () => {
         WSResolver("error")(state)
@@ -453,7 +456,7 @@ const closeResolve = (state) => {
   width: 100%;
   height: 100%;
   position: fixed;
-  background-image: url('../../static/bg2.png');
+  background-image: url('https://gitee.com/lconq/my-img-oss/raw/master/img/rabbitgirl.png');
   background-position: top;
   background-attachment: fixed;
   background-size: cover;
@@ -484,6 +487,11 @@ const closeResolve = (state) => {
   background-color: rgba(233, 233, 233, 0.5);
   margin: 10px 15px 20px 10px;
   border-radius: 10px;
+}
+
+@font-face {
+  font-family: 阿里汉仪智能黑体;
+  src: url("../../static/阿里汉仪智能黑体.ttf");
 }
 
 .round-button {
